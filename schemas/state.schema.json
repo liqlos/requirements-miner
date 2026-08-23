@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/local/requirements-miner/main/schemas/state.schema.json",
+  "title": "requirements-miner run state",
+  "type": "object",
+  "required": ["version", "run_id", "params", "questions", "counters", "stop_reason"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "const": 1 },
+    "run_id": { "type": "string" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "params": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["project_path", "goal", "question_target", "panel_size", "model_policy"],
+      "properties": {
+        "project_path": { "type": "string" },
+        "goal": { "type": "string" },
+        "knowledge_base": { "type": ["string", "null"] },
+        "question_target": { "type": "integer", "minimum": 1 },
+        "panel_size": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "model_policy": { "enum": ["inherit", "cheap"] },
+        "time_budget_minutes": { "type": ["integer", "null"], "minimum": 1 },
+        "max_panels": { "type": ["integer", "null"], "minimum": 1 },
+        "output_path": { "type": "string" }
+      }
+    },
+    "project_fingerprint_start": { "$ref": "#/$defs/fingerprint" },
+    "questions": {
+      "type": "object",
+      "propertyNames": { "pattern": "^Q[0-9]{3}$" },
+      "additionalProperties": { "$ref": "#/$defs/question" }
+    },
+    "counters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rounds", "panels_run"],
+      "properties": {
+        "rounds": { "type": "integer", "minimum": 0 },
+        "panels_run": { "type": "integer", "minimum": 0 },
+        "rounds_without_new_children": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "started_at_epoch": { "type": ["number", "null"] },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "project_fingerprint_end": { "$ref": "#/$defs/fingerprint" },
+        "project_unchanged": { "type": "boolean" }
+      }
+    },
+    "stop_reason": {
+      "enum": [null, "frontier_exhausted", "target_reached", "budget_time", "budget_panels", "diminishing_return"]
+    }
+  },
+  "$defs": {
+    "fingerprint": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["algorithm", "digest"],
+      "properties": {
+        "algorithm": { "const": "sha256-manifest-v1" },
+        "digest": { "type": "string" }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source"],
+      "properties": {
+        "source": { "type": "string", "description": "path:line, URL, or kb:<ref>" },
+        "quote": { "type": "string" }
+      }
+    },
+    "verdict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lens", "answer", "confidence", "rationale", "evidence", "unknowns", "counterargument"],
+      "properties": {
+        "lens": { "enum": ["user-product", "feasibility", "critic", "domain", "scope"] },
+        "answer": { "type": "string" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "rationale": { "type": "string" },
+        "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidence" } },
+        "unknowns": { "type": "array", "items": { "type": "string" } },
+        "counterargument": { "type": "string" }
+      }
+    },
+    "decision": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["resolution", "basis", "confidence"],
+      "properties": {
+        "resolution": { "type": "string" },
+        "basis": { "enum": ["evidence", "majority", "peer-review"] },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "dissent": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["lens", "position", "reason"],
+            "properties": {
+              "lens": { "type": "string" },
+              "position": { "type": "string" },
+              "reason": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "question": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "body", "category", "kind", "depends_on", "status"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^Q[0-9]{3}$" },
+        "title": { "type": "string", "minLength": 3 },
+        "body": { "type": "string", "minLength": 10 },
+        "category": {
+          "enum": ["product", "user", "constraint", "behavior", "risk", "contradiction", "edge-case", "success-criterion", "assumption"]
+        },
+        "kind": { "enum": ["fact", "preference"], "description": "fact = evidence-decidable; preference = judgement call" },
+        "depends_on": { "type": "array", "items": { "type": "string", "pattern": "^Q[0-9]{3}$" } },
+        "children": { "type": "array", "items": { "type": "string", "pattern": "^Q[0-9]{3}$" } },
+        "status": { "enum": ["open", "queued", "aggregated", "needs_review", "parked"] },
+        "panels": { "type": "array", "items": { "$ref": "#/$defs/verdict" } },
+        "decision": { "$ref": "#/$defs/decision" }
+      }
+    }
+  }
+}

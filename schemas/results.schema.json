@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/local/requirements-miner/main/schemas/results.schema.json",
+  "title": "requirements-miner final results",
+  "type": "object",
+  "required": ["version", "run_id", "params", "stop_reason", "requirements", "open_contradictions", "success_criteria", "first_increment", "provenance"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "const": 1 },
+    "run_id": { "type": "string" },
+    "params": { "type": "object" },
+    "stop_reason": { "type": ["string", "null"] },
+    "questions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "category", "kind", "status", "decision", "panels"],
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "body": { "type": "string" },
+          "category": { "type": "string" },
+          "kind": { "enum": ["fact", "preference"] },
+          "depends_on": { "type": "array", "items": { "type": "string" } },
+          "status": { "type": "string" },
+          "panels": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["lens", "answer", "confidence", "rationale", "evidence", "unknowns", "counterargument"],
+              "properties": {
+                "lens": { "type": "string" },
+                "answer": { "type": "string" },
+                "confidence": { "type": "number" },
+                "rationale": { "type": "string" },
+                "evidence": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["source"],
+                    "properties": {
+                      "source": { "type": "string" },
+                      "quote": { "type": "string" }
+                    }
+                  }
+                },
+                "unknowns": { "type": "array", "items": { "type": "string" } },
+                "counterargument": { "type": "string" }
+              }
+            }
+          },
+          "decision": {
+            "type": ["object", "null"],
+            "additionalProperties": false,
+            "required": ["resolution", "basis", "confidence"],
+            "properties": {
+              "resolution": { "type": "string" },
+              "basis": { "enum": ["evidence", "majority", "peer-review"] },
+              "confidence": { "type": "number" },
+              "dissent": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["lens", "position", "reason"],
+                  "properties": {
+                    "lens": { "type": "string" },
+                    "position": { "type": "string" },
+                    "reason": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "requirements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "text", "source_question", "epistemic_class"],
+        "properties": {
+          "id": { "pattern": "^R[0-9]{3}$", "type": "string" },
+          "text": { "type": "string" },
+          "source_question": { "type": ["string", "null"], "pattern": "^(Q[0-9]{3})?$" },
+          "epistemic_class": { "enum": ["fact", "preference", "assumption"] },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["source"],
+              "properties": {
+                "source": { "type": "string" },
+                "quote": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "open_contradictions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["question_id", "summary", "positions"],
+        "properties": {
+          "question_id": { "type": "string" },
+          "summary": { "type": "string" },
+          "positions": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "success_criteria": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["criterion", "verifiable"],
+        "properties": {
+          "criterion": { "type": "string" },
+          "verifiable": { "type": "boolean" },
+          "how_to_verify": { "type": "string" }
+        }
+      }
+    },
+    "first_increment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["description", "rationale"],
+      "properties": {
+        "description": { "type": "string" },
+        "rationale": { "type": "string" },
+        "excluded_until_later": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "dissent_log": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["question_id", "lens", "position", "reason"],
+        "properties": {
+          "question_id": { "type": "string" },
+          "lens": { "type": "string" },
+          "position": { "type": "string" },
+          "reason": { "type": "string" }
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["harness", "model_policy", "counters"],
+      "properties": {
+        "harness": { "type": "string" },
+        "model_observed": { "type": ["string", "null"] },
+        "model_policy": { "type": "string" },
+        "project_fingerprint_end": { "type": ["object", "null"] },
+        "counters": { "type": "object" }
+      }
+    }
+  }
+}

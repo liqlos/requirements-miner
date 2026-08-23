@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.DS_Store
+*.state.json
+*.results.json
+requirements-brief*.md
+!fixtures/**/*

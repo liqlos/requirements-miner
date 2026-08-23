@@ -38,7 +38,7 @@ command -v codex >/dev/null 2>&1 && HAVE_CODEX=1 || HAVE_CODEX=0
 command -v pi >/dev/null 2>&1 && HAVE_PI=1 || HAVE_PI=0
 
 if [ "$HAVE_CLAUDE" = 1 ]; then
-  link_or_copy "../../.agents/skills/requirements-miner" "${HOME}/.claude/skills/requirements-miner"
+  link_or_copy "$CANONICAL" "${HOME}/.claude/skills/requirements-miner"
 fi
 
 if [ "$HAVE_CLAUDE" = 1 ]; then

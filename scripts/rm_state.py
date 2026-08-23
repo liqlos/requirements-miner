@@ -135,6 +135,8 @@ def find_duplicate(state: dict, title: str, body: str) -> tuple[str, float] | No
 
 def cmd_init(args) -> None:
     project_abs = os.path.abspath(args.project_path)
+    if not os.path.exists(project_abs):
+        raise SystemExit(f"PROJECT_PATH does not exist: {project_abs}")
     output_abs = os.path.abspath(args.output_path)
     out_dir = os.path.dirname(output_abs) or "."
     proj_dir = project_abs if os.path.isdir(project_abs) else os.path.dirname(project_abs)
@@ -144,6 +146,12 @@ def cmd_init(args) -> None:
             f"read-only end-to-end, but outputs would be written under {proj_dir}")
     if not 1 <= args.panel_size <= len(LENSES):
         raise SystemExit(f"panel-size must be between 1 and {len(LENSES)} (one expert per lens)")
+    if os.path.exists(args.state_file):
+        existing = load_state(args.state_file)
+        raise SystemExit(
+            f"state file already exists ({args.state_file}, run {existing['run_id']}); "
+            "use `resume` instead of `init` to continue it"
+        )
     state = {
         "version": STATE_VERSION,
         "run_id": f"rm-{time.strftime('%Y%m%d-%H%M%S')}-{os.getpid()}",
@@ -166,12 +174,6 @@ def cmd_init(args) -> None:
         "started_at_epoch": time.time(),
         "stop_reason": None,
     }
-    if os.path.exists(args.state_file):
-        existing = load_state(args.state_file)
-        raise SystemExit(
-            f"state file already exists ({args.state_file}, run {existing['run_id']}); "
-            "use `resume` instead of `init` to continue it"
-        )
     save_state(args.state_file, state)
     print(json.dumps({"ok": True, "run_id": state["run_id"]}, ensure_ascii=False))
 
@@ -418,15 +420,27 @@ def cmd_resolve_review(args) -> None:
         raise SystemExit(f"question {args.question_id} status is '{q['status']}', expected 'needs_review'")
     if not args.resolution.strip():
         raise SystemExit("resolution must not be empty; park the question instead")
+    if not 0 <= args.confidence <= 1:
+        raise SystemExit("confidence must be within [0,1]")
+    basis = "peer-review"
+    if q["kind"] == "fact":
+        res_norm = norm_answer(args.resolution)
+        for p in q["panels"]:
+            if not p.get("evidence"):
+                continue
+            ans_norm = norm_answer(p["answer"])
+            if ans_norm and (ans_norm in res_norm or res_norm in ans_norm):
+                basis = "evidence"
+                break
     q["decision"] = {
         "resolution": args.resolution.strip(),
-        "basis": "peer-review",
+        "basis": basis,
         "confidence": round(args.confidence, 3),
         "dissent": q["decision"]["dissent"] if q.get("decision") else [],
     }
     q["status"] = "aggregated"
     save_state(args.state_file, state)
-    print(json.dumps({"ok": True}, ensure_ascii=False))
+    print(json.dumps({"ok": True, "basis": basis}, ensure_ascii=False))
 
 
 def cmd_park(args) -> None:
@@ -435,6 +449,8 @@ def cmd_park(args) -> None:
     q = state["questions"].get(args.question_id)
     if not q:
         raise SystemExit(f"unknown question {args.question_id}")
+    if q["status"] == "aggregated":
+        raise SystemExit("question is aggregated and settled; parking would hide a decided requirement")
     q["status"] = "parked"
     save_state(args.state_file, state)
     print(json.dumps({"ok": True}, ensure_ascii=False))
@@ -652,6 +668,13 @@ def collect_results(state: dict, harness: str, model_observed: str | None) -> di
             contradictions.append({
                 "question_id": qid, "summary": q["title"], "positions": positions,
             })
+        elif q["status"] == "parked":
+            positions = [f"{p['lens']}: {p['answer'].strip()}" for p in q["panels"]]
+            contradictions.append({
+                "question_id": qid,
+                "summary": f"{q['title']} (parked unresolved)",
+                "positions": positions or [q["body"]],
+            })
         elif q["status"] in ("open", "queued"):
             requirements.append({
                 "id": rid(), "text": f"[ASSUMPTION] {q['title']} — never settled: {q['body']}",
@@ -700,13 +723,21 @@ def cmd_finish(args) -> None:
     state = load_state(args.state_file)
     if not state["stop_reason"]:
         state["stop_reason"] = evaluate_stop(state) or "frontier_exhausted"
+    try:
+        first_increment = json.loads(args.first_increment)
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"--first-increment is not valid JSON: {exc}")
+    if not isinstance(first_increment, dict):
+        raise SystemExit("--first-increment must be a JSON object")
+    if not str(first_increment.get("description", "")).strip():
+        raise SystemExit("first_increment.description must not be empty")
+    if not str(first_increment.get("rationale", "")).strip():
+        raise SystemExit("first_increment.rationale must not be empty")
     results = collect_results(state, args.harness, args.model_observed)
     out_base = os.path.splitext(state["params"]["output_path"])[0]
     brief_path = out_base + ".md"
     results_path = out_base + ".results.json"
-    results["first_increment"] = json.loads(args.first_increment)
-    if not results["first_increment"].get("description"):
-        raise SystemExit("first_increment.description must not be empty")
+    results["first_increment"] = first_increment
     os.makedirs(os.path.dirname(os.path.abspath(brief_path)) or ".", exist_ok=True)
     with open(results_path, "w", encoding="utf-8") as fh:
         json.dump(results, fh, ensure_ascii=False, indent=2)

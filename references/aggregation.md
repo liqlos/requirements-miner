@@ -28,9 +28,12 @@ cite sources or ≥2 distinct sources are cited overall.
 If two or more answer groups cite real evidence → contradiction: the question
 goes to `needs_review` with dissent already attached, and if still unsettled
 ships as an open contradiction in the brief. A "fact" resolved without any
-evidential support is downgraded to an *assumption* in the final brief — and
-so is a fact settled only by peer review (`basis=peer-review`): votes and
-adjudication do not turn claims into facts; only cited evidence does.
+evidential support is downgraded to an *assumption* in the final brief.
+Peer review preserves epistemics: if the critic's verdict echoes an
+answer that panels backed with citations, `basis=evidence` carries over and
+the item stays a fact; a verdict matching nothing cited stays
+`basis=peer-review` and ships as an assumption — adjudication never turns
+uncited claims into facts.
 
 ## Weighted majority (preferences)
 

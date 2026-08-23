@@ -23,7 +23,7 @@ Accept as user arguments or ask once, compactly:
 | `MODEL_POLICY` | `inherit` | `inherit` = current harness model; never switch to a paid model silently |
 | `OUTPUT_PATH` | `./requirements-brief.md` | brief path outside PROJECT_PATH; `<base>.results.json` and `<base>.state.json` sit beside it |
 | `RESUME` | off | resume interrupted run from state file |
-| Time/panel budget | none | e.g. "30 min", "max 20 expert runs" (`--time-budget-minutes`, `--max-panels`; both count individual expert verdicts) |
+| Time/panel budget | none | e.g. "30 min" (`--time-budget-minutes`, wall-clock) or "max 20 expert runs" (`--max-panels`, counts individual expert verdicts) |
 
 Small project ⇒ small tree. QUESTION_TARGET is a ceiling, not a quota.
 

@@ -345,7 +345,7 @@ class TestReviewRegressions(Base):
                 stdin=verdict(lens, ans, evidence=ev))
         run("aggregate", "--state-file", self.state)
         run("resolve-review", "--state-file", self.state, "--question-id", qid,
-            "--resolution", "Alpha design, per code", "--confidence", "0.7")
+            "--resolution", "totally unrelated wording", "--confidence", "0.7")
         st = json.loads(Path(self.state).read_text())
         q = st["questions"][qid]
         self.assertEqual(q["status"], "aggregated")
@@ -358,6 +358,71 @@ class TestReviewRegressions(Base):
         results = json.loads(Path(fin["results"]).read_text())
         req = next(r for r in results["requirements"] if r["source_question"] == qid)
         self.assertEqual(req["epistemic_class"], "assumption")
+
+    def test_resolve_review_preserves_evidence_basis_when_verdict_echoes_cited_answer(self):
+        qid = self.add_q("Fact settled by critic citing code",
+                         "Critic picks the cited side.", kind="fact")
+        ev_a = [{"source": "src/app.py:1", "quote": "a"}]
+        ev_b = [{"source": "README.md:1", "quote": "b"}]
+        run("claim", "--state-file", self.state, "--question-id", qid)
+        for lens, ans, ev in (("user-product", "Alpha design", ev_a),
+                              ("feasibility", "Beta design", ev_b)):
+            run("record-verdict", "--state-file", self.state,
+                "--question-id", qid, "--verdict", "-",
+                stdin=verdict(lens, ans, evidence=ev))
+        run("aggregate", "--state-file", self.state)
+        out = run("resolve-review", "--state-file", self.state,
+                  "--question-id", qid,
+                  "--resolution", "keep the alpha design", "--confidence", "0.8")
+        self.assertEqual(out["basis"], "evidence")
+
+    def test_parked_question_ships_as_open_contradiction(self):
+        qid = self.add_q("Unresolvable fork question", "Nobody can settle this.")
+        self.fill_panel(qid, ["left path", "right path"], confs=[0.9, 0.9])
+        run("aggregate", "--state-file", self.state)
+        run("park", "--state-file", self.state, "--question-id", qid)
+        run("round-done", "--state-file", self.state, "--new-children", "0")
+        fin = run("finish", "--state-file", self.state, "--harness", "t",
+                  "--first-increment", json.dumps({"description": "d", "rationale": "r"}))
+        results = json.loads(Path(fin["results"]).read_text())
+        ids = [c["question_id"] for c in results["open_contradictions"]]
+        self.assertIn(qid, ids)
+        brief = Path(fin["brief"]).read_text()
+        self.assertIn("Open contradictions", brief)
+
+    def test_park_rejects_aggregated_question(self):
+        qid = self.add_q("Already settled question", "Parking this would hide it.")
+        self.fill_panel(qid, ["x", "x"])
+        run("aggregate", "--state-file", self.state)
+        out = run("park", "--state-file", self.state, "--question-id", qid,
+                  expect_ok=False)
+        self.assertEqual(out.get("code"), 1)
+
+    def test_resolve_review_confidence_out_of_range_rejected(self):
+        qid = self.add_q("Bad confidence question", "Critic sends nonsense value.")
+        self.fill_panel(qid, ["a", "b"], confs=[0.9, 0.9])
+        run("aggregate", "--state-file", self.state)
+        out = run("resolve-review", "--state-file", self.state,
+                  "--question-id", qid, "--resolution", "whatever",
+                  "--confidence", "7.5", expect_ok=False)
+        self.assertEqual(out.get("code"), 1)
+
+    def test_finish_rejects_malformed_first_increment_before_writing(self):
+        qid = self.add_q("Guard the outputs question", "Finish must validate inputs first.")
+        self.fill_panel(qid, ["a", "a"])
+        run("aggregate", "--state-file", self.state)
+        run("round-done", "--state-file", self.state, "--new-children", "0")
+        out_base = str(self.tmp / "guarded")
+        st = json.loads(Path(self.state).read_text())
+        st["params"]["output_path"] = out_base + ".md"
+        Path(self.state).write_text(json.dumps(st))
+        proc = subprocess.run(
+            [sys.executable, str(RM_STATE), "finish", "--state-file", self.state,
+             "--harness", "t", "--first-increment", '{"description":"d"}'],
+            capture_output=True, text=True)
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertFalse(os.path.exists(out_base + ".md"))
+        self.assertFalse(os.path.exists(out_base + ".results.json"))
 
     def test_finish_requires_first_increment(self):
         qid = self.add_q("Anything at all", "Body long enough for validation.")

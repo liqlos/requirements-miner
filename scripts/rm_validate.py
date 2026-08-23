@@ -55,10 +55,10 @@ def check_skill_structure(root: str) -> list[str]:
     if os.path.isdir(refdir):
         for fn in sorted(os.listdir(refdir)):
             rtext = open(os.path.join(refdir, fn), encoding="utf-8").read()
-            for ref in re.findall(r"\.\./([\w./-]+)", rtext):
-                target = os.path.normpath(os.path.join(refdir, "..", ref))
-                if os.path.isdir(os.path.join(refdir, ref)) is False and not os.path.exists(target):
-                    problems.append(f"references/{fn}: broken relative ref ../{ref}")
+            for ref in re.findall(r"\]\((\.{1,2}/[^)#]+)\)", rtext):
+                target = os.path.normpath(os.path.join(refdir, ref))
+                if not os.path.exists(target):
+                    problems.append(f"references/{fn}: broken relative ref {ref}")
     return problems
 
 
@@ -150,6 +150,13 @@ def validate_state(path: str) -> list[str]:
             lenses = [x["lens"] for x in q["panels"]]
             if len(lenses) != len(set(lenses)):
                 problems.append(f"{qid}: duplicate lens verdicts")
+        dec = q.get("decision")
+        if dec is not None:
+            dconf = dec.get("confidence", -1)
+            if not isinstance(dconf, (int, float)) or not 0 <= dconf <= 1:
+                problems.append(f"{qid}: decision confidence out of range")
+            if dec.get("basis") not in ("evidence", "majority", "peer-review"):
+                problems.append(f"{qid}: bad decision basis '{dec.get('basis')}'")
     if state.get("stop_reason") not in (None,) + tuple(
             s for s in ("frontier_exhausted", "target_reached", "budget_time",
                         "budget_panels", "diminishing_return")):
@@ -160,9 +167,9 @@ def validate_state(path: str) -> list[str]:
 def validate_results(path: str) -> list[str]:
     problems = []
     res = load_json(path)
-    for key in ("version", "run_id", "params", "stop_reason", "requirements",
-                "open_contradictions", "success_criteria", "first_increment",
-                "provenance"):
+    for key in ("version", "run_id", "params", "stop_reason", "questions",
+                "requirements", "open_contradictions", "success_criteria",
+                "first_increment", "provenance"):
         if key not in res:
             problems.append(f"results missing '{key}'")
     seen_r = set()

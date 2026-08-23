@@ -3,7 +3,7 @@
   "$id": "https://raw.githubusercontent.com/local/requirements-miner/main/schemas/results.schema.json",
   "title": "requirements-miner final results",
   "type": "object",
-  "required": ["version", "run_id", "params", "stop_reason", "requirements", "open_contradictions", "success_criteria", "first_increment", "provenance"],
+  "required": ["version", "run_id", "params", "stop_reason", "questions", "requirements", "open_contradictions", "success_criteria", "first_increment", "provenance"],
   "additionalProperties": false,
   "properties": {
     "version": { "const": 1 },

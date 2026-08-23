@@ -1,7 +1,7 @@
 __pycache__/
 *.pyc
 .DS_Store
+.install-backup-*/
 *.state.json
 *.results.json
 requirements-brief*.md
-!fixtures/**/*
